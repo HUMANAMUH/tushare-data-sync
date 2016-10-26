@@ -5,8 +5,7 @@ tushare_db = create_engine('postgresql://earthson@localhost/trading_tushare', po
 
 def fetch_stock_basics():
     df = ts.get_stock_basics()
-    ans = df.set_index(['code'])
-    ans.to_sql('stock_basics', tushare_db, if_exists="replace")
+    df.to_sql('stock_basics', tushare_db, if_exists="replace")
 
 def fetch_tick(stock, date):
     df = ts.get_tick_data(stock, date=date)
