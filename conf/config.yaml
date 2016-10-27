@@ -1,0 +1,12 @@
+task-executor:
+    server_url: "http://localhost:9000"
+    try_limit: 5
+    task_timeout: 120
+    pool: "tushare"
+    request_timeout: 100
+    num_worker: 4
+    exit_when_done: false
+    retry_interval: 3
+    retry_limit: 5
+    log_level: INFO
+    log_file: log/executor.log
