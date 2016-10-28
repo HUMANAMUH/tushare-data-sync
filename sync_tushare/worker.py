@@ -9,9 +9,14 @@ tx = TaskExecutor.load("conf/config.yaml", loop=loop)
 @tx.arg_register("tick")
 def fetch_tick(stock, date):
     df = ts.get_tick_data(stock, date=date)
+    if df is None:
+        return
     df['stock'] = stock
     df['date'] = date
     ans = df.set_index(['stock', 'date'])
+    if len(ans) > 0 and "当天没有数据" in ans['time'][0]:
+        # no data found
+        return
     try:
         tushare_db.execute("""delete from tick_data where "stock"='%s' AND "date"='%s' """ % (stock, date))
     except:
@@ -25,6 +30,8 @@ def fetch_history_faa(stock, start, end):
     History data forward answer authority
     """
     df = ts.get_h_data(stock, autype='hfq', start=start, end=end)
+    if df is None:
+        return
     df['stock'] = stock
     ans = df.set_index(['stock','date'])
     try:
