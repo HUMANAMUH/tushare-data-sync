@@ -4,7 +4,7 @@ task-executor:
     task_timeout: 120
     pool: "tushare"
     request_timeout: 100
-    num_worker: 4
+    num_worker: 36 
     exit_when_done: false
     retry_interval: 3
     retry_limit: 5
