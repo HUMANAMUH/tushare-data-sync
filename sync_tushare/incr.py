@@ -4,6 +4,7 @@ import tushare as ts
 from db import tushare_db
 from task.executor import TaskExecutor
 from datetime import datetime, timedelta, time as dtime
+from task.timeutil import *
 
 date_fmt = '%Y-%m-%d'
 
@@ -32,22 +33,31 @@ def incr_run():
                     "date": target_date.strftime(date_fmt)
                 }
             }
-            return await texecutor.task_schedule('tick', '%s_%s' % (stock_code, target_date.strftime(date_fmt)), scheduled_at, group='tick_%s' % stock_code, options=options)
-        async def add_history_faa_task(target_date, scheduled_at):
+            key = '%s_%s' % (stock_code, target_date.strftime(date_fmt))
+            group = 'tick_%s' % stock_code
+            return await texecutor.task_schedule('tick', key, scheduled_at, group=group, options=options)
+        async def add_history_faa_task(start_date, end_date, scheduled_at):
             options = {
                 "kwargs": {
                     "stock": stock_code,
-                    "start": target_date.strftime(date_fmt),
-                    "end": target_date.strftime(date_fmt)
+                    "start": start_date.strftime(date_fmt),
+                    "end": end_date.strftime(date_fmt)
                 }
             }
-            return await texecutor.task_schedule('history_faa', '%s_%s' % (stock_code, target_date.strftime(date_fmt)), scheduled_at, group='history_faa_%s' % stock_code, options=options)
-        async def with_date_update(last_datetime, act):
-            while last_datetime is None or last_datetime.date() < (current_time + t_delta).date():
-                target_date = datetime.combine(last_datetime.date(), dtime.min) if last_datetime is not None else start_date
-                last_datetime = target_date + t_delta
-                await act(target_date, last_datetime)
-        await asyncio.gather(*(with_date_update(last_tick_schedule_at, add_tick_task), with_date_update(last_history_faa_schedule_at, add_history_faa_task)))
+            key = '%s||%s_%s' % (stock_code, start_date.strftime(date_fmt), end_date.strftime(date_fmt))
+            group = 'history_faa_%s' % stock_code
+            return await texecutor.task_schedule('history_faa', key, scheduled_at, group=group, options=options)
+        async def do_history_faa():
+            s = get_date(last_tick_schedule_at) if last_history_faa_schedule_at is not None else start_date
+            for start, end in date_range(s, current_time, timedelta(days=256)):
+                await add_history_faa_task(start, end, end + t_delta)
+        async def do_tick():
+            s = get_date(last_tick_schedule_at) if last_tick_schedule_at is not None else start_date
+            s = max(s, datetime.strptime("2000-01-01", date_fmt))
+            for target_date, _ in date_range(s, current_time, timedelta(days=1)):
+                await add_tick_task(target_date, target_date + t_delta)
+        
+        await asyncio.gather(*(do_history_faa(), do_tick()))
 
     with TaskExecutor.load("conf/config.yaml", loop=loop) as tx:
         loop.run_until_complete(asyncio.gather(*(incr_stock(code, datetime.strptime(str(start_date), '%Y%m%d'), tx) for code, start_date in stocks)))                       
