@@ -49,12 +49,12 @@ def incr_run():
             return await texecutor.task_schedule('history_faa', key, scheduled_at, group=group, options=options)
         async def do_history_faa():
             s = get_date(last_tick_schedule_at) if last_history_faa_schedule_at is not None else start_date
-            for start, end in date_range(s, current_time, timedelta(days=256)):
+            for start, end in date_range(s, current_time, step_days=256):
                 await add_history_faa_task(start, end, end + t_delta)
         async def do_tick():
             s = get_date(last_tick_schedule_at) if last_tick_schedule_at is not None else start_date
             s = max(s, datetime.strptime("2000-01-01", date_fmt))
-            for target_date, _ in date_range(s, current_time, timedelta(days=1)):
+            for target_date, _ in date_range(s, current_time, step_days=1):
                 await add_tick_task(target_date, target_date + t_delta)
         
         await asyncio.gather(*(do_history_faa(), do_tick()))
