@@ -10,13 +10,14 @@ date_fmt = '%Y-%m-%d'
 
 logging.basicConfig(level=logging.DEBUG)
 
-def fetch_stock_basics():
+def fetch_stock_basics(conn):
     df = ts.get_stock_basics()
-    df.to_sql('stock_basics', tushare_db, if_exists="replace")
+    df.to_sql('stock_basics', conn, if_exists="replace")
 
 def incr_run():
-    #fetch_stock_basics()
-    stocks = [v for v in list(tushare_db.execute("""SELECT "code", "timeToMarket" from stock_basics where "timeToMarket" > 0 """))]
+    with tushare_db.connect() as conn:
+        fetch_stock_basics(conn)
+        stocks = [v for v in list(conn.execute("""SELECT "code", "timeToMarket" from stock_basics where "timeToMarket" > 0 """))]
     loop = asyncio.get_event_loop()
     async def incr_stock(stock_code, start_date, texecutor):
         logging.debug("stock: '%s', '%s'" % (stock_code, start_date))

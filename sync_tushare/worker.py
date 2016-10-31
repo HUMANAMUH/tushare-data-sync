@@ -20,12 +20,16 @@ def fetch_tick(stock, date):
     df['stock'] = stock
     df['date'] = date
     ans = df.set_index(['stock', 'date'])
+    conn = tushare_db.connect()
     try:
-        tushare_db.execute("""delete from tick_data where "stock"='%s' AND "date"='%s' """ % (stock, date))
-    except:
-        pass
-    logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
-    ans.to_sql('tick_data', tushare_db, if_exists="append")
+        try:
+            conn.execute("""delete from tick_data where "stock"='%s' AND "date"='%s' """ % (stock, date))
+        except:
+            pass
+        logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
+        ans.to_sql('tick_data', conn, if_exists="append")
+    finally:
+        conn.close()
 
 
 @tx.arg_register("history_faa")
@@ -39,12 +43,16 @@ def fetch_history_faa(stock, start, end):
         return
     df['stock'] = stock
     ans = df.reset_index().set_index(['stock','date'])
+    conn = tushare_db.connect()
     try:
-        logging.debug("no history data for stock: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
-    except:
-        pass
-    logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
-    ans.to_sql('history_faa', tushare_db, if_exists="append")
+        try:
+            conn.execute("""delete from history_faa where "stock"='%s' AND "date">='%s' AND "date"<='%s'""" % (stock, start, end))
+        except:
+            pass
+        logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
+        ans.to_sql('history_faa', conn, if_exists="append")
+    finally:
+        conn.close()
 
 logging.basicConfig(level=logging.DEBUG)
 loop.run_until_complete(tx.run())
