@@ -16,7 +16,7 @@ def fetch_stock_basics(conn):
 
 def incr_run():
     with tushare_db.connect() as conn:
-        fetch_stock_basics(conn)
+        # fetch_stock_basics(conn)
         stocks = [v for v in list(conn.execute("""SELECT "code", "timeToMarket" from stock_basics where "timeToMarket" > 0 """))]
     loop = asyncio.get_event_loop()
     async def incr_stock(stock_code, start_date, texecutor):
@@ -54,11 +54,14 @@ def incr_run():
                 await add_history_faa_task(start, end, end + t_delta)
         async def do_tick():
             s = get_date(last_tick_schedule_at) if last_tick_schedule_at is not None else start_date
-            s = max(s, datetime.strptime("2000-01-01", date_fmt))
+            s = max(s, datetime.strptime("2005-01-01", date_fmt))
             for target_date, _ in date_range(s, current_time, step_days=1):
                 await add_tick_task(target_date, target_date + t_delta)
         
-        await asyncio.gather(*(do_history_faa(), do_tick()))
+        await asyncio.gather(*(do_tick(), do_history_faa()))
+        # await asyncio.gather(*(do_history_faa(), do_tick()))
+        # await do_history_faa()
+        # await do_tick()
 
     with TaskExecutor.load("conf/config.yaml", loop=loop) as tx:
         loop.run_until_complete(asyncio.gather(*(incr_stock(code, datetime.strptime(str(start_date), '%Y%m%d'), tx) for code, start_date in stocks)))                       

@@ -3,11 +3,12 @@ import asyncio
 import tushare as ts
 from db import tushare_db
 from task.executor import TaskExecutor
+import time
 
 loop = asyncio.get_event_loop()
-tx = TaskExecutor.load("conf/config.yaml", loop=loop)
+tx = TaskExecutor.load("conf/config.yaml", loop=loop, multi_process=True)
 
-@tx.arg_register("tick")
+@tx.register("tick", expand_param=True)
 def fetch_tick(stock, date):
     df = ts.get_tick_data(stock, date=date)
     if df is None:
@@ -20,19 +21,16 @@ def fetch_tick(stock, date):
     df['stock'] = stock
     df['date'] = date
     ans = df.set_index(['stock', 'date'])
-    conn = tushare_db.connect()
-    try:
+    with tushare_db.connect() as conn:
         try:
             conn.execute("""delete from tick_data where "stock"='%s' AND "date"='%s' """ % (stock, date))
         except:
             pass
         logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
         ans.to_sql('tick_data', conn, if_exists="append")
-    finally:
-        conn.close()
 
 
-@tx.arg_register("history_faa")
+@tx.register("history_faa", expand_param=True)
 def fetch_history_faa(stock, start, end):
     """
     History data forward answer authority
@@ -43,16 +41,13 @@ def fetch_history_faa(stock, start, end):
         return
     df['stock'] = stock
     ans = df.reset_index().set_index(['stock','date'])
-    conn = tushare_db.connect()
-    try:
+    with tushare_db.connect() as conn:
         try:
             conn.execute("""delete from history_faa where "stock"='%s' AND "date">='%s' AND "date"<='%s'""" % (stock, start, end))
         except:
             pass
         logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
         ans.to_sql('history_faa', conn, if_exists="append")
-    finally:
-        conn.close()
 
 logging.basicConfig(level=logging.DEBUG)
 loop.run_until_complete(tx.run())
