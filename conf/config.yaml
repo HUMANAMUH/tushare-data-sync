@@ -10,3 +10,5 @@ task-executor:
     retry_limit: 5
     log_level: INFO
     log_file: log/executor.log
+tushare:
+    db_uri: "postgresql+psycopg2://earthson@localhost/trading_tushare"

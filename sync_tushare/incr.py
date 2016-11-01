@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import tushare as ts
-from db import tushare_db
+from common import tushare_db
 from task.executor import TaskExecutor
 from datetime import datetime, timedelta, time as dtime
 from task.timeutil import *
@@ -16,7 +16,7 @@ def fetch_stock_basics(conn):
 
 def incr_run():
     with tushare_db.connect() as conn:
-        # fetch_stock_basics(conn)
+        fetch_stock_basics(conn)
         stocks = [v for v in list(conn.execute("""SELECT "code", "timeToMarket" from stock_basics where "timeToMarket" > 0 """))]
     loop = asyncio.get_event_loop()
     async def incr_stock(stock_code, start_date, texecutor):
@@ -51,11 +51,15 @@ def incr_run():
         async def do_history_faa():
             s = get_date(last_tick_schedule_at) if last_history_faa_schedule_at is not None else start_date
             for start, end in date_range(s, current_time, step_days=256):
+                if texecutor.terminate_flag is True:
+                    return
                 await add_history_faa_task(start, end, end + t_delta)
         async def do_tick():
             s = get_date(last_tick_schedule_at) if last_tick_schedule_at is not None else start_date
             s = max(s, datetime.strptime("2005-01-01", date_fmt))
             for target_date, _ in date_range(s, current_time, step_days=1):
+                if texecutor.terminate_flag is True:
+                    return
                 await add_tick_task(target_date, target_date + t_delta)
         
         await asyncio.gather(*(do_tick(), do_history_faa()))

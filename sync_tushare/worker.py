@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import tushare as ts
-from db import tushare_db
+from common import tushare_db
 from task.executor import TaskExecutor
 import time
 
