@@ -2,6 +2,7 @@ import logging
 import asyncio
 import pandas as pd
 import tushare as ts
+from sqlalchemy import TIMESTAMP
 from common import tushare_db
 from task.executor import TaskExecutor
 from datetime import datetime
@@ -31,7 +32,7 @@ def fetch_tick(stock, date):
         except:
             pass
         logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
-        ans.to_sql('tick_data', conn, if_exists="append")
+        ans.to_sql('tick_data', conn, if_exists="append", dtype={'time': TIMESTAMP(timezone=True)})
 
 
 @tx.register("history_faa", expand_param=True)
