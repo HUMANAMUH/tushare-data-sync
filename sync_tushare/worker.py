@@ -1,12 +1,16 @@
 import logging
 import asyncio
+import pandas as pd
 import tushare as ts
 from common import tushare_db
 from task.executor import TaskExecutor
+from datetime import datetime
 import time
 
 loop = asyncio.get_event_loop()
 tx = TaskExecutor.load("conf/config.yaml", loop=loop, multi_process=True)
+
+time_fmt = '%Y-%m-%d %H:%M:%S'
 
 @tx.register("tick", expand_param=True)
 def fetch_tick(stock, date):
@@ -19,11 +23,11 @@ def fetch_tick(stock, date):
         logging.debug("no tick data for stock: ts.get_tick_data('%s', date='%s')" % (stock, date))
         return
     df['stock'] = stock
-    df['date'] = date
-    ans = df.set_index(['stock', 'date'])
+    df['time'] = (date + ' ' + df['time']).map(lambda x: pd.Timestamp(datetime.strptime(x, time_fmt), tz='Asia/Shanghai').strftime(format="%Y-%m-%d %H:%M:%S%z"))
+    ans = df.set_index(['stock', 'time'])
     with tushare_db.connect() as conn:
         try:
-            conn.execute("""delete from tick_data where "stock"='%s' AND "date"='%s' """ % (stock, date))
+            conn.execute("""delete from tick_data where "stock"='%s' AND "time"::date = date '%s' """ % (stock, date))
         except:
             pass
         logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))

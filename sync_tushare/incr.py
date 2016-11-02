@@ -24,8 +24,8 @@ def incr_run():
         last_tick = await texecutor.group_last("tick_%s" % stock_code)
         last_history_faa = await texecutor.group_last("history_faa_%s" % stock_code)
         current_time = datetime.now()
-        last_tick_schedule_at = last_tick["scheduled_at"] if last_tick is not None else None
-        last_history_faa_schedule_at = last_history_faa["scheduled_at"] if last_history_faa is not None else None
+        last_tick_schedule_at = last_tick["scheduledAt"] if last_tick is not None else None
+        last_history_faa_schedule_at = last_history_faa["scheduledAt"] if last_history_faa is not None else None
         t_delta = timedelta(days=1, hours=1)
         async def add_tick_task(target_date, scheduled_at):
             options = {
