@@ -35,7 +35,9 @@ def fetch_tick(stock, date):
     with tushare_db.connect() as conn:
         try:
             with timer(logtime("tick_data_del")):
-                conn.execute("""delete from tick_data where "stock"='%s' AND "time"::date = date '%s' """ % (stock, date))
+                del_sql = """delete from tick_data where "stock"='%s' AND "time" >= timestamp '%s' AND "time" < timestamp '%s' + interval '1 day' """ % (stock, date, date) 
+                logging.debug(del_sql)
+                conn.execute(del_sql)
         except:
             pass
         logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
