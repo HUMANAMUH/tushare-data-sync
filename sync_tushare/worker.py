@@ -38,7 +38,8 @@ def fetch_tick(stock, date):
                 del_sql = """delete from tick_data where "stock"='%s' AND "time" >= timestamp '%s' AND "time" < timestamp '%s' + interval '1 day' """ % (stock, date, date) 
                 logging.debug(del_sql)
                 conn.execute(del_sql)
-        except:
+        except Exception as e:
+            logging.warn(e)
             pass
         logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
         with timer(logtime("tick_data_append")):
@@ -64,7 +65,8 @@ def fetch_history_faa(stock, start, end):
                 del_sql = """delete from history_faa where "stock"='%s' AND "date" >= timestamp '%s' AND "date" <= timestamp '%s'""" % (stock, start, end)
                 logging.debug(del_sql)
                 conn.execute(del_sql)
-        except:
+        except Exception as e:
+            logging.warn(e)
             pass
         logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
         with timer(logtime("history_faa_append")):
