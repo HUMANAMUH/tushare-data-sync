@@ -61,7 +61,9 @@ def fetch_history_faa(stock, start, end):
     with tushare_db.connect() as conn:
         try:
             with timer(logtime("history_faa_del")):
-                conn.execute("""delete from history_faa where "stock"='%s' AND "date">='%s' AND "date"<='%s'""" % (stock, start, end))
+                del_sql = """delete from history_faa where "stock"='%s' AND "date" >= timestamp '%s' AND "date" <= timestamp '%s'""" % (stock, start, end)
+                logging.debug(del_sql)
+                conn.execute(del_sql)
         except:
             pass
         logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
