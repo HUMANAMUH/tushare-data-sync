@@ -1,4 +1,4 @@
-task-executor:
+task:
     server_url: "http://localhost:9000"
     try_limit: 5
     task_timeout: 120
