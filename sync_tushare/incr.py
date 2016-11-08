@@ -5,6 +5,7 @@ from common import tushare_db
 from task.controller import TaskController
 from datetime import datetime, timedelta, time as dtime
 from task.timeutil import *
+from task.common import *
 
 date_fmt = '%Y-%m-%d'
 
@@ -67,7 +68,7 @@ def incr_run():
         # await do_history_faa()
         # await do_tick()
 
-    with TaskController.load("conf/config.yaml", loop=loop) as tc:
+    with TaskController.load("conf/config.yaml") as tc:
         loop.run_until_complete(asyncio.gather(*(incr_stock(code, datetime.strptime(str(start_date), '%Y%m%d'), tc) for code, start_date in stocks)))                       
 
 incr_run()
