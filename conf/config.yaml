@@ -4,11 +4,11 @@ task:
     task_timeout: 120
     pool: "tushare"
     request_timeout: 100
-    num_worker: 8 
+    num_worker: 32 
     exit_when_done: false
     retry_interval: 3
     retry_limit: 5
-    log_level: DEBUG
+    log_level: INFO
     log_file: log/executor.log
 tushare:
     db_uri: "postgresql+psycopg2://earthson@localhost/trading_tushare"
