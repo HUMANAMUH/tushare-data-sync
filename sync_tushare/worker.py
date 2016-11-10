@@ -12,16 +12,28 @@ import time
 from task.common import *
 from task import event_loop
 from task.data_buffer import BufferedDataProcessor
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+def do_nothing(*args, **kwargs):
+    pass
+
+def disable_stdout():
+    import os
+    import sys
+    f = open(os.devnull, 'w')
+    sys.stdout = f
+    sys.stdout.flush = do_nothing
+    sys.stdout.write = do_nothing
 
 tx = TaskExecutor.load("conf/config.yaml", multi_process=False)
 
 proc_pool = ProcessPoolExecutor(max_workers=64)
+#proc_pool = ThreadPoolExecutor(max_workers=64)
 tick_buffer = BufferedDataProcessor(num_worker=1)
 history_buffer = BufferedDataProcessor(num_worker=1)
 
 def logtime(key):
-    return lambda t: logging.debug("%s: %.3f", key, t)
+    return lambda t: logging.debug("%s: %.3fs", key, t)
 
 @tick_buffer.on_combine
 @history_buffer.on_combine
@@ -33,15 +45,9 @@ def df_merge(a, b):
 def tick_insert(data):
     logging.debug("tick_data_rows: %d", len(data))
     dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
-    dtypes['time'] = DATETIME(timezone=True)
+    dtypes['time'] = DATETIME
     with tushare_db.connect() as conn:
-        try:
-            print("###")
-            print(data)
-            data.to_sql('tick_data', conn, if_exists="append", index=False, dtype=dtypes, chunksize=None, flavor='mysql')
-        except Exception as e:
-
-            raise e
+        data.to_sql('tick_data', conn, if_exists="append", index=False, dtype=dtypes, chunksize=None, flavor='mysql')
 
 @history_buffer.processor
 @with_timer(logtime("history_data_append"))
@@ -56,17 +62,15 @@ time_fmt = '%Y-%m-%d %H:%M:%S'
 
 @tx.register("tick", expand_param=True)
 async def fetch_tick(stock, date):
-    df = await wait_concurrent(event_loop, proc_pool, ts.get_tick_data, stock, date=date, pause=1)
-    if df is None:
-        logging.debug("no tick data for stock: ts.get_tick_data('%s', date='%s')" % (stock, date))
-        return
-    if len(df) > 0 and "当天没有数据" in df['time'][0]:
+    with timer(logtime("ts.get_tick_data('%s', date='%s')" % (stock, date))):
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_tick_data, stock, date=date, pause=1)
+    if df is None or (len(df) > 0 and "当天没有数据" in df['time'][0]):
         # no data found
         logging.debug("no tick data for stock: ts.get_tick_data('%s', date='%s')" % (stock, date))
         return
     # with timer(logtime("tick_data_proc")):
     df['stock'] = stock
-    df['time'] = (date + ' ' + df['time']).map(lambda x: pd.Timestamp(datetime.strptime(x, time_fmt), tz='Asia/Shanghai').strftime(format="%Y-%m-%d %H:%M:%S%z"))
+    df['time'] = (date + ' ' + df['time']).map(lambda x: pd.Timestamp(datetime.strptime(x, time_fmt)).strftime(format="%Y-%m-%d %H:%M:%S%z"))
     return tick_buffer.proc_data(df)
     # with tushare_db.connect() as conn:
     #     try:
@@ -87,8 +91,9 @@ async def fetch_history_faa(stock, start, end):
     """
     History data forward answer authority
     """
-    #with timer(logtime("get_history_faa")):
-    df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype='hfq', start=start, end=end, pause=1)
+    disable_stdout()
+    with timer(logtime("ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))):
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype='hfq', start=start, end=end, pause=1)
     if df is None:
         logging.debug("no history data for stock: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
         return
@@ -108,6 +113,7 @@ async def fetch_history_faa(stock, start, end):
     #     logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
     #     with timer(logtime("history_faa_append")):
     #         ans.to_sql('history_faa', conn, if_exists="append")
+
 
 logging.basicConfig(level=logging.DEBUG)
 tx.run()

@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.DEBUG)
 def fetch_stock_basics(conn):
     df = ts.get_stock_basics()
     df['timeToMarket'] = df['timeToMarket'].map(lambda s: datetime.strptime(str(s), '%Y%m%d') if s > 0 else None)
-    df.to_sql('stock_basics', conn, if_exists="replace", dtype={"code": VARCHAR(32)}, flavor='mysql'')
+    df.to_sql('stock_basics', conn, if_exists="replace", dtype={"code": VARCHAR(32)}, flavor='mysql')
 
 def incr_run():
     with tushare_db.connect() as conn:
