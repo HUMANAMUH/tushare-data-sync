@@ -63,7 +63,7 @@ time_fmt = '%Y-%m-%d %H:%M:%S'
 @tx.register("tick", expand_param=True)
 async def fetch_tick(stock, date):
     with timer(logtime("ts.get_tick_data('%s', date='%s')" % (stock, date))):
-        df = await wait_concurrent(event_loop, proc_pool, ts.get_tick_data, stock, date=date, pause=1)
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_tick_data, stock, date=date, pause=0.1)
     if df is None or (len(df) > 0 and "当天没有数据" in df['time'][0]):
         # no data found
         logging.debug("no tick data for stock: ts.get_tick_data('%s', date='%s')" % (stock, date))
@@ -93,7 +93,7 @@ async def fetch_history_faa(stock, start, end):
     """
     disable_stdout()
     with timer(logtime("ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))):
-        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype='hfq', start=start, end=end, pause=1)
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype='hfq', start=start, end=end, pause=0.1)
     if df is None:
         logging.debug("no history data for stock: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
         return
