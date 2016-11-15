@@ -65,9 +65,8 @@ def incr_run():
                     return
                 await add_tick_task(target_date, target_date + t_delta)
         
-        await asyncio.gather(*(do_tick(), do_history_faa()))
-        # await asyncio.gather(*(do_history_faa(), do_tick()))
-        # await do_history_faa()
+        # await asyncio.gather(*(do_tick(), do_history_faa()))
+        await do_history_faa()
         # await do_tick()
 
     with TaskController.load("conf/config.yaml") as tc:
