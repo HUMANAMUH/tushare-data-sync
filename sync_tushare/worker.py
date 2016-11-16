@@ -47,7 +47,7 @@ def tick_insert(data):
     dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
     dtypes['time'] = DATETIME
     with tushare_db.connect() as conn:
-        data.to_sql('tick_data', conn, if_exists="append", index=False, dtype=dtypes, chunksize=None, flavor='mysql')
+        data.to_sql('tick_data', conn, if_exists="append", index=False, dtype=dtypes, chunksize=None)
 
 @history_buffer.processor
 @with_timer(logtime("history_data_append"))
@@ -55,7 +55,7 @@ def history_insert(data):
     logging.debug("history_data_rows: %d", len(data))
     dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
     with tushare_db.connect() as conn:
-        data.to_sql('history_faa', conn, index=False, if_exists="append", dtype=dtypes, chunksize=None, flavor='mysql')
+        data.to_sql('history_faa', conn, index=False, if_exists="append", dtype=dtypes, chunksize=None)
 
 time_fmt = '%Y-%m-%d %H:%M:%S'
 
