@@ -5,4 +5,4 @@ GRANT ALL privileges ON tushare.* TO data@'%';
 GRANT ALL privileges ON tushare.* TO data@'localhost';
 flush privileges;
 
-CREATE DATABASE tushare IF NOT EXISTS;
+CREATE DATABASE IF NOT EXISTS tushare;
