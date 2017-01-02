@@ -11,4 +11,6 @@ task:
     log_level: INFO
     log_file: log/executor.log
 tushare:
-    db_uri: "postgresql+psycopg2://earthson@localhost/trading_tushare"
+    db_buffer: "mysql+pymysql://data:showmethemoney@localhost/tushare_buffer?charset=utf8mb4"
+    db_tmp: "mysql+pymysql://data:showmethemoney@localhost/tushare_tmp?charset=utf8mb4"
+    db_data: "mysql+pymysql://data:showmethemoney@localhost/tushare_data?charset=utf8mb4"

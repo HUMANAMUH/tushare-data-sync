@@ -4,7 +4,7 @@ import pandas as pd
 import tushare as ts
 from sqlalchemy import DATETIME
 from sqlalchemy.types import VARCHAR
-from common import tushare_db
+from common import db_buffer
 from task.executor import TaskExecutor
 from task.timeutil import *
 from datetime import datetime
@@ -29,8 +29,9 @@ tx = TaskExecutor.load("conf/config.yaml", multi_process=False)
 
 proc_pool = ProcessPoolExecutor(max_workers=64)
 #proc_pool = ThreadPoolExecutor(max_workers=64)
-tick_buffer = BufferedDataProcessor(num_worker=1)
-history_buffer = BufferedDataProcessor(num_worker=1)
+tick_buffer = BufferedDataProcessor(num_worker=4)
+history_buffer = BufferedDataProcessor(num_worker=8)
+history_index_buffer = BufferedDataProcessor(num_worker=1)
 
 def logtime(key):
     return lambda t: logging.debug("%s: %.3fs", key, t)
@@ -46,7 +47,7 @@ def tick_insert(data):
     logging.debug("tick_data_rows: %d", len(data))
     dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
     dtypes['time'] = DATETIME
-    with tushare_db.connect() as conn:
+    with db_buffer.connect() as conn:
         data.to_sql('tick_data', conn, if_exists="append", index=False, dtype=dtypes, chunksize=None)
 
 @history_buffer.processor
@@ -54,8 +55,16 @@ def tick_insert(data):
 def history_insert(data):
     logging.debug("history_data_rows: %d", len(data))
     dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
-    with tushare_db.connect() as conn:
-        data.to_sql('history_faa', conn, index=False, if_exists="append", dtype=dtypes, chunksize=None)
+    with db_buffer.connect() as conn:
+        data.to_sql('history', conn, index=False, if_exists="append", dtype=dtypes, chunksize=None)
+
+@history_index_buffer.processor
+@with_timer(logtime("history_index_data_append"))
+def history_index_insert(data):
+    logging.debug("history_index_data_rows: %d", len(data))
+    dtypes = { k: VARCHAR(32) for k, v in data.dtypes.items() if v.name == 'object'}
+    with db_buffer.connect() as conn:
+        data.to_sql('history_index', conn, index=False, if_exists="append", dtype=dtypes, chunksize=None)
 
 time_fmt = '%Y-%m-%d %H:%M:%S'
 
@@ -72,53 +81,41 @@ async def fetch_tick(stock, date):
     df['stock'] = stock
     df['time'] = (date + ' ' + df['time']).map(lambda x: pd.Timestamp(datetime.strptime(x, time_fmt)).strftime(format="%Y-%m-%d %H:%M:%S%z"))
     return tick_buffer.proc_data(df)
-    # with tushare_db.connect() as conn:
-    #     try:
-    #         with timer(logtime("tick_data_del")):
-    #             del_sql = """delete from tick_data where "stock"='%s' AND "time" >= timestamp '%s' AND "time" < timestamp '%s' + interval '1 day' """ % (stock, date, date) 
-    #             logging.debug(del_sql)
-    #             conn.execute(del_sql)
-    #     except Exception as e:
-    #         logging.warn(e)
-    #         pass
-    #     logging.debug("data got: ts.get_tick_data('%s', date='%s')" % (stock, date))
-    #     with timer(logtime("tick_data_append")):
-    #         ans.to_sql('tick_data', conn, if_exists="append", dtype={'time': TIMESTAMP(timezone=True)})
 
 
-@tx.register("history_faa", expand_param=True)
-async def fetch_history_faa(stock, start, end):
+@tx.register("history", expand_param=True)
+async def fetch_history(stock, start, end):
     """
     History data forward answer authority
     """
     disable_stdout()
-    with timer(logtime("ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))):
-        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype='hfq', start=start, end=end, pause=0.1)
+    with timer(logtime("ts.get_h_data('%s', autype=None, start='%s', end='%s', drop_factor=False)" % (stock, start, end))):
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, stock, autype=None, start=start, end=end, drop_factor=False, pause=0.05)
     if df is None:
-        logging.debug("no history data for stock: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
+        logging.debug("no history data for stock: ts.get_h_data('%s', autype=None, start='%s', end='%s')" % (stock, start, end))
         return
-    # with timer(logtime("history_faa_proc")):
     df['stock'] = stock
     ans = df.reset_index()
     return history_buffer.proc_data(ans)
-    # with tushare_db.connect() as conn:
-    #     try:
-    #         with timer(logtime("history_faa_del")):
-    #             del_sql = """delete from history_faa where "stock"='%s' AND "date" >= timestamp '%s' AND "date" <= timestamp '%s'""" % (stock, start, end)
-    #             logging.debug(del_sql)
-    #             conn.execute(del_sql)
-    #     except Exception as e:
-    #         logging.warn(e)
-    #         pass
-    #     logging.debug("data got: ts.get_h_data('%s', autype='hfq', start='%s', end='%s')" % (stock, start, end))
-    #     with timer(logtime("history_faa_append")):
-    #         ans.to_sql('history_faa', conn, if_exists="append")
 
+@tx.register("history_index", expand_param=True)
+async def fetch_history_index(code, start, end):
+    disable_stdout()
+    info = "ts.get_h_data('%s', start='%s', end='%s', pause=0.05, index=True)" % (code, start, end)
+    with timer(logtime(info)):
+        df = await wait_concurrent(event_loop, proc_pool, ts.get_h_data, code, start=start, end=end, pause=0.05, index=True)
+    if df is None:
+        logging.debug("no history index data for code: %s", info)
+        return
+    df['code'] = code
+    ans = df.reset_index()
+    return history_index_buffer.proc_data(ans)
 
 logging.basicConfig(level=logging.DEBUG)
 tx.run()
 tick_buffer.run()
 history_buffer.run()
+history_index_buffer.run()
 event_loop.run_until_complete(wait_all_task_done())
 print("Exit")
 tx.close()

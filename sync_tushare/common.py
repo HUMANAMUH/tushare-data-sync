@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 with open("conf/config.yaml", "r") as fobj:
     config = yaml.load(fobj.read())["tushare"]
 
-#tushare_db = create_engine('postgresql+pg8000://earthson@localhost/trading_tushare', pool_size=128, max_overflow=0)
-# tushare_db = create_engine(config["db_uri"], pool_size=16, max_overflow=0)
-tushare_db = create_engine('mysql+pymysql://data:showmethemoney@localhost/tushare?charset=utf8mb4', pool_size=64, pool_recycle=400, max_overflow=0)
+
+db_buffer = create_engine(config["db_buffer"], pool_size=64, pool_recycle=400, max_overflow=0)
+db_tmp = create_engine(config["db_tmp"], pool_size=64, pool_recycle=400, max_overflow=0)
+db_data = create_engine(config["db_data"], pool_size=64, pool_recycle=400, max_overflow=0)
