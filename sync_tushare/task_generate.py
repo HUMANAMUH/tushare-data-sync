@@ -58,10 +58,9 @@ with TaskController.load("conf/config.yaml") as task_ctrl:
             return await task_ctrl.task_schedule('history_index', key, scheduled_at, group=group, options=options)
         start_date = await get_start_date(group_name)
         for start, end in date_range(start_date, yesterday, 1000):
-            if is_terminated:
-                break
+            if is_terminated():
+                return
             await add_history_index_task(start, end, end + start_delay)
-        await add_history_index_task(today, today, today + start_delay)
     async def incr_stock(stock_code, start_date):
         logging.debug("stock: '%s', '%s'" % (stock_code, start_date))
         group_tick = "tick_%s" % stock_code
@@ -97,7 +96,6 @@ with TaskController.load("conf/config.yaml") as task_ctrl:
                 if is_terminated():
                     return
                 await add_history_task(start, end, end + start_delay)
-            await add_history_task(today, today, today + start_delay)
 
         async def do_tick():
             for target_date, _ in date_range(tick_start, today, step_days=1):
@@ -109,4 +107,5 @@ with TaskController.load("conf/config.yaml") as task_ctrl:
 
     stock_tasks = [incr_stock(code, start_date) for code, start_date in stocks]
     index_tasks = [incr_index(code) for code in stock_indices]
+    #loop.run_until_complete(asyncio.gather(*(index_tasks)))
     loop.run_until_complete(asyncio.gather(*(index_tasks + stock_tasks)))
