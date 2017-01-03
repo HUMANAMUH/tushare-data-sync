@@ -1,7 +1,7 @@
 task:
     server_url: "http://localhost:9000"
     try_limit: 5
-    task_timeout: 120
+    task_timeout: 600
     pool: "tushare"
     request_timeout: 100
     num_worker: 32 
