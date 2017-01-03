@@ -3,7 +3,8 @@ from common import db_data
 import random
 import string
 
-table_uuid = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(12))
+#table_uuid = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(12))
+table_uuid="tmp"
 
 COLUMN_TMPL = '''
 SELECT `COLUMN_NAME`
@@ -21,8 +22,8 @@ def history_update():
             conn.execute("RENAME TABLE tushare_buffer.history TO tushare_tmp.history_{uuid}".format(uuid=table_uuid))
         except:
             pass
-        conn.execute("CREATE TABLE IF NOT EXISTS tushare_data.history LIKE tushare_tmp.history_{uuid}".format(uuid=table_uuid))
         try:
+            conn.execute("CREATE TABLE IF NOT EXISTS tushare_data.history LIKE tushare_tmp.history_{uuid}".format(uuid=table_uuid))
             conn.execute('''ALTER TABLE tushare_data.history ADD PRIMARY KEY(stock, date)''')
             conn.execute('''ALTER TABLE tushare_data.history ADD UNIQUE INDEX date_stock (date, stock)''')
         except:
@@ -39,8 +40,8 @@ def history_index_update():
             conn.execute("RENAME TABLE tushare_buffer.history_index TO tushare_tmp.history_index_{uuid}".format(uuid=table_uuid))
         except:
             pass
-        conn.execute("CREATE TABLE IF NOT EXISTS tushare_data.history_index LIKE tushare_tmp.history_index_{uuid}".format(uuid=table_uuid))
         try:
+            conn.execute("CREATE TABLE IF NOT EXISTS tushare_data.history_index LIKE tushare_tmp.history_index_{uuid}".format(uuid=table_uuid))
             conn.execute('''ALTER TABLE tushare_data.history_index ADD PRIMARY KEY(code, date)''')
             conn.execute('''ALTER TABLE tushare_data.history_index ADD UNIQUE INDEX date_stock (date, code)''')
         except:
