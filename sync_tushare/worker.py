@@ -38,6 +38,7 @@ def logtime(key):
 
 @tick_buffer.on_combine
 @history_buffer.on_combine
+@history_index_buffer.on_combine
 def df_merge(a, b):
     return pd.concat([a, b])
 

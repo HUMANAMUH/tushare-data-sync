@@ -1,3 +1,4 @@
+import sys
 import logging
 import asyncio
 import tushare as ts
@@ -22,92 +23,96 @@ def fetch_index_list(conn):
     df = ts.get_index()[['code', 'name']]
     df.to_sql('stock_index', conn, if_exists="replace", dtype={"code": VARCHAR(32)})
 
-with TaskController.load("conf/config.yaml") as task_ctrl:
-    current_time = datetime.now()
-    today = get_date(current_time)
-    yesterday = today - timedelta(days=1)
-    tommorrow = today + timedelta(days=1)
-    start_delay = timedelta(days=1, hours=1)
+loop = asyncio.get_event_loop()
 
-    with db_data.connect() as conn:
-        fetch_stock_basics(conn)
-        fetch_index_list(conn)
-        stocks = [v for v in list(conn.execute("""SELECT code, timeToMarket from stock_basics where timeToMarket IS NOT NULL """))]
-        stock_indices = [v[0] for v in list(conn.execute("""SELECT code from stock_index"""))]
+async def get_tasks():
+    async with TaskController.load("conf/config.yaml") as task_ctrl:
+        current_time = datetime.now()
+        today = get_date(current_time)
+        yesterday = today - timedelta(days=1)
+        tommorrow = today + timedelta(days=1)
+        start_delay = timedelta(days=1, hours=1)
 
-    loop = asyncio.get_event_loop()
+        with db_data.connect() as conn:
+            fetch_stock_basics(conn)
+            fetch_index_list(conn)
+            stocks = [v for v in list(conn.execute("""SELECT code, timeToMarket from stock_basics where timeToMarket IS NOT NULL """))]
+            stock_indices = [v[0] for v in list(conn.execute("""SELECT code from stock_index"""))]
     
-    async def get_start_date(group, default=origin_date):
-        last_task = await task_ctrl.group_last(group)
-        last_scheduled_at = last_task["scheduledAt"] if last_task is not None else None
-        return get_date(last_scheduled_at) if last_scheduled_at is not None else default
+        async def get_start_date(group, default=origin_date):
+            last_task = await task_ctrl.group_last(group)
+            last_scheduled_at = last_task["scheduledAt"] if last_task is not None else None
+            return get_date(last_scheduled_at) if last_scheduled_at is not None else default
 
-    
-    async def incr_index(index_code):
-        group_name = "history_index_%s" % index_code
-        async def add_history_index_task(start_date, end_date, scheduled_at):
-            start = start_date.strftime(date_fmt)
-            end = end_date.strftime(date_fmt)
-            options = {
-                "kwargs": {
-                    "code": index_code,
-                    "start": start,
-                    "end": end
+        
+        async def incr_index(index_code):
+            group_name = "history_index_%s" % index_code
+            async def add_history_index_task(start_date, end_date, scheduled_at):
+                start = start_date.strftime(date_fmt)
+                end = end_date.strftime(date_fmt)
+                options = {
+                    "kwargs": {
+                        "code": index_code,
+                        "start": start,
+                        "end": end
+                    }
                 }
-            }
-            key = 'index_%s||%s_%s' % (index_code, start, end)
-            group = group_name
-            return await task_ctrl.task_schedule('history_index', key, scheduled_at, group=group, options=options)
-        start_date = await get_start_date(group_name)
-        for start, end in date_range(start_date, yesterday, 1000):
-            if is_terminated():
-                return
-            await add_history_index_task(start, end, end + start_delay)
-    async def incr_stock(stock_code, start_date):
-        logging.debug("stock: '%s', '%s'" % (stock_code, start_date))
-        group_tick = "tick_%s" % stock_code
-        group_history = "history_%s" % stock_code
-        tick_start = await get_start_date(group_tick, default=datetime.strptime("2005-01-01", date_fmt))
-        history_start = await get_start_date(group_history, default=start_date)
-        async def add_tick_task(target_date, scheduled_at):
-            options = {
-                "kwargs": {
-                    "stock": stock_code,
-                    "date": target_date.strftime(date_fmt)
-                }
-            }
-            key = 'tick_%s_%s' % (stock_code, target_date.strftime(date_fmt))
-            group = 'tick_%s' % stock_code
-            return await task_ctrl.task_schedule('tick', key, scheduled_at, group=group, options=options)
-        async def add_history_task(start_d, end_d, scheduled_at):
-            start = start_d.strftime(date_fmt)
-            end = end_d.strftime(date_fmt)
-            options = {
-                "kwargs": {
-                    "stock": stock_code,
-                    "start": start,
-                    "end": end
-                }
-            }
-            key = 'history_%s||%s_%s' % (stock_code, start, end)
-            group = 'history_%s' % stock_code
-            return await task_ctrl.task_schedule('history', key, scheduled_at, group=group, options=options)
-
-        async def do_history():
-            for start, end in date_range(history_start, yesterday, step_days=1000):
+                key = 'index_%s||%s_%s' % (index_code, start, end)
+                group = group_name
+                return await task_ctrl.task_schedule('history_index', key, scheduled_at, group=group, options=options)
+            start_date = await get_start_date(group_name)
+            for start, end in date_range(start_date, yesterday, 1000):
                 if is_terminated():
                     return
-                await add_history_task(start, end, end + start_delay)
+                await add_history_index_task(start, end, end + start_delay)
+        async def incr_stock(stock_code, start_date):
+            #logging.debug("stock: '%s', '%s'" % (stock_code, start_date))
+            group_tick = "tick_%s" % stock_code
+            group_history = "history_%s" % stock_code
+            tick_start = await get_start_date(group_tick, default=datetime.strptime("2005-01-01", date_fmt))
+            history_start = await get_start_date(group_history, default=start_date)
+            async def add_tick_task(target_date, scheduled_at):
+                options = {
+                    "kwargs": {
+                        "stock": stock_code,
+                        "date": target_date.strftime(date_fmt)
+                    }
+                }
+                key = 'tick_%s_%s' % (stock_code, target_date.strftime(date_fmt))
+                group = 'tick_%s' % stock_code
+                return await task_ctrl.task_schedule('tick', key, scheduled_at, group=group, options=options)
+            async def add_history_task(start_d, end_d, scheduled_at):
+                start = start_d.strftime(date_fmt)
+                end = end_d.strftime(date_fmt)
+                options = {
+                    "kwargs": {
+                        "stock": stock_code,
+                        "start": start,
+                        "end": end
+                    }
+                }
+                key = 'history_%s||%s_%s' % (stock_code, start, end)
+                group = 'history_%s' % stock_code
+                return await task_ctrl.task_schedule('history', key, scheduled_at, group=group, options=options)
 
-        async def do_tick():
-            for target_date, _ in date_range(tick_start, today, step_days=1):
-                if is_terminated():
-                    return
-                await add_tick_task(target_date, target_date + start_delay)
-        await do_history()
-        # await do_tick()
+            async def do_history():
+                for start, end in date_range(history_start, yesterday, step_days=1000):
+                    if is_terminated():
+                        return
+                    await add_history_task(start, end, end + start_delay)
 
-    stock_tasks = [incr_stock(code, start_date) for code, start_date in stocks]
-    index_tasks = [incr_index(code) for code in stock_indices]
-    #loop.run_until_complete(asyncio.gather(*(index_tasks)))
-    loop.run_until_complete(asyncio.gather(*(index_tasks + stock_tasks)))
+            async def do_tick():
+                for target_date, _ in date_range(tick_start, today, step_days=1):
+                    if is_terminated():
+                        return
+                    await add_tick_task(target_date, target_date + start_delay)
+            await do_history()
+            # await do_tick()
+
+        stock_tasks = [incr_stock(code, start_date) for code, start_date in stocks]
+        index_tasks = [incr_index(code) for code in stock_indices]
+        #loop.run_until_complete(asyncio.gather(*(index_tasks)))
+        return index_tasks + stock_tasks
+
+tasks = loop.run_until_complete(get_tasks())
+loop.run_until_complete(asyncio.gather(*tasks))
