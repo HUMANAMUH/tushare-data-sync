@@ -35,12 +35,14 @@ with TaskController.load("conf/config.yaml") as task_ctrl:
         stocks = [v for v in list(conn.execute("""SELECT code, timeToMarket from stock_basics where timeToMarket IS NOT NULL """))]
         stock_indices = [v[0] for v in list(conn.execute("""SELECT code from stock_index"""))]
 
+    loop = asyncio.get_event_loop()
+    
     async def get_start_date(group, default=origin_date):
         last_task = await task_ctrl.group_last(group)
         last_scheduled_at = last_task["scheduledAt"] if last_task is not None else None
         return get_date(last_scheduled_at) if last_scheduled_at is not None else default
 
-    loop = asyncio.get_event_loop()
+    
     async def incr_index(index_code):
         group_name = "history_index_%s" % index_code
         async def add_history_index_task(start_date, end_date, scheduled_at):
