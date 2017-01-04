@@ -33,8 +33,8 @@ async def main():
     async with TaskController.load("conf/config.yaml") as task_ctrl:
         current_time = datetime.now()
         today = get_date(current_time)
-        yesterday = today - timedelta(days=1)
-        tommorrow = today + timedelta(days=1)
+        #yesterday = today - timedelta(days=1)
+        #tomorrow = today + timedelta(days=1)
         start_delay = timedelta(days=1, hours=1)
 
         with db_data.connect() as conn:
@@ -65,7 +65,7 @@ async def main():
                 group = group_name
                 return await task_ctrl.task_schedule('history_index', key, scheduled_at, group=group, options=options)
             start_date = await get_start_date(group_name)
-            for start, end in date_range(start_date, yesterday, 1000):
+            for start, end in date_range(start_date, today, 1000):
                 if is_terminated():
                     return
                 await add_history_index_task(start, end, end + start_delay)
@@ -100,7 +100,7 @@ async def main():
                 return await task_ctrl.task_schedule('history', key, scheduled_at, group=group, options=options)
 
             async def do_history():
-                for start, end in date_range(history_start, yesterday, step_days=1000):
+                for start, end in date_range(history_start, today, step_days=1000):
                     if is_terminated():
                         return
                     await add_history_task(start, end, end + start_delay)
