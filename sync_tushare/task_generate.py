@@ -25,7 +25,7 @@ def fetch_index_list(conn):
 
 loop = asyncio.get_event_loop()
 
-async def get_tasks():
+async def main():
     async with TaskController.load("conf/config.yaml") as task_ctrl:
         current_time = datetime.now()
         today = get_date(current_time)
@@ -112,7 +112,6 @@ async def get_tasks():
         stock_tasks = [incr_stock(code, start_date) for code, start_date in stocks]
         index_tasks = [incr_index(code) for code in stock_indices]
         #loop.run_until_complete(asyncio.gather(*(index_tasks)))
-        return index_tasks + stock_tasks
-
-tasks = loop.run_until_complete(get_tasks())
-loop.run_until_complete(asyncio.gather(*tasks))
+        await asyncio.gather(*(index_tasks + stock_tasks))
+        
+loop.run_until_complete(main())
