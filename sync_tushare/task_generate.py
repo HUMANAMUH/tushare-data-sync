@@ -14,12 +14,16 @@ origin_date = datetime.strptime('1989-12-31', date_fmt)
 
 logging.basicConfig(level=logging.DEBUG)
 
+@with_timer(lambda t: logging.debug("Time used@fetch_stocks: %.2lfs" % t))
 def fetch_stock_basics(conn):
+    logging.debug("Fetch stocks")
     df = ts.get_stock_basics()
     df['timeToMarket'] = df['timeToMarket'].map(lambda s: datetime.strptime(str(s), '%Y%m%d') if s > 0 else None)
     df.to_sql('stock_basics', conn, if_exists="replace", dtype={"code": VARCHAR(32)})
 
+@with_timer(lambda t: logging.debug("Time used@fetch indices: %.2lfs" % t))
 def fetch_index_list(conn):
+    logging.debug("Fetch indices")
     df = ts.get_index()[['code', 'name']]
     df.to_sql('stock_index', conn, if_exists="replace", dtype={"code": VARCHAR(32)})
 
@@ -113,5 +117,5 @@ async def main():
         index_tasks = [incr_index(code) for code in stock_indices]
         #loop.run_until_complete(asyncio.gather(*(index_tasks)))
         await asyncio.gather(*(index_tasks + stock_tasks))
-        
+
 loop.run_until_complete(main())
