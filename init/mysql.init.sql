@@ -3,7 +3,7 @@ CREATE USER IF NOT EXISTS data@localhost IDENTIFIED BY 'showmethemoney';
 flush privileges;
 GRANT ALL privileges ON tushare_buffer.* TO data@'%';
 GRANT ALL privileges ON tushare_buffer.* TO data@'localhost';
-GRANT ALL privileges ON tushare_tmpr.* TO data@'%';
+GRANT ALL privileges ON tushare_tmp.* TO data@'%';
 GRANT ALL privileges ON tushare_tmp.* TO data@'localhost';
 GRANT ALL privileges ON tushare_data.* TO data@'%';
 GRANT ALL privileges ON tushare_data.* TO data@'localhost';
